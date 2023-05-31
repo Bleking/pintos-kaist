@@ -91,6 +91,9 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
+	
+	// newly added
+	int64_t wakeup_tick;  // tick till wake up
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -107,6 +110,17 @@ struct thread {
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
+	
+	// newly added for priority donation
+	// 각 스레드가 donate 받은 내역을 관리할 수 있도록 해주자.
+	int init_priority;  // saves the initial priority of the thread
+	struct list donation;  // 자신에게 priority를 나눠준 thread 리스트
+	struct list_elem d_elem;  // donation 리스트의 원소
+	struct lock *wait_on_lock;  // 해당 스레드가 기다리고 있는 lock 추적하기
+
+	// newly added for advance scheduler
+	int nice;
+	int recent_gpu;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -142,5 +156,17 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+void thread_sleep(int64_t ticks);
+void thread_wakeup(int64_t ticks);
+
+// newly added for priority donation
+bool thread_compare_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
+
+void test_max_priority(void);
 
 #endif /* threads/thread.h */
