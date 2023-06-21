@@ -298,6 +298,12 @@ int write(int fd, const void *buffer, unsigned size)
       file_size = file_write(process_get_file(fd), buffer, size);
       lock_release(&filesys_lock);
    }
+   // 06.21
+      if (fd < FD_MIN || fd >= FD_MAX)
+   {
+      exit(-1);
+      return -1;
+   }
    return file_size;
 }
 
