@@ -294,16 +294,17 @@ int write(int fd, const void *buffer, unsigned size)
    }
    else
    {
+      if (fd < FD_MIN || fd >= FD_MAX)
+      {
+         exit(-1);
+         return -1;
+      }
       lock_acquire(&filesys_lock);
       file_size = file_write(process_get_file(fd), buffer, size);
       lock_release(&filesys_lock);
    }
    // 06.21
-      if (fd < FD_MIN || fd >= FD_MAX)
-   {
-      exit(-1);
-      return -1;
-   }
+
    return file_size;
 }
 
@@ -356,7 +357,7 @@ void close(int fd)
 void check_address(void *addr)
 {
    struct thread *curr = thread_current();
-   if (!is_user_vaddr(addr) || is_kernel_vaddr(addr) || pml4_get_page(curr->pml4, addr) == NULL)
+   if (!is_user_vaddr(addr) || is_kernel_vaddr(addr))
    {
       exit(-1);
    }
