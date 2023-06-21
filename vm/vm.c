@@ -5,6 +5,7 @@
 #include "vm/inspect.h"
 #include "threads/mmu.h"
 #include "lib/string.h"
+#include "lib/kernel/hash.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -38,7 +39,7 @@ page_get_type (struct page *page) {
 static struct frame *vm_get_victim (void);
 static bool vm_do_claim_page (struct page *page);
 static struct frame *vm_evict_frame (void);
-// void destructor_func (struct hash_elem, void *aux);
+void hash_destroy_func(struct hash_elem *e, void* aux);
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -280,15 +281,31 @@ supplemental_page_table_copy (struct supplemental_page_table *dst ,
 
 }
 
-/* Free the resource hold by the supplemental page table */
+// 06.21 : kill 구현 (1)
 void
-supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
-	/* TODO: Destroy all the supplemental_page_table hold by thread and
-	 * TODO: writeback all the modified contents to the storage. */
+supplemental_page_table_kill (struct supplemental_page_table *spt) {
+	// /* TODO: Destroy all the supplemental_page_table hold by thread and
+	//  * TODO: writeback all the modified contents to the storage. */
 	
+	// hash_destroy()로 해시 테이블의 버킷 리스트와, vm_entry(page-hash_elem) 제거
+	hash_destroy(&spt->table, hash_destroy_func);	
+
+	// 추가 : spt_remove_page()도 있다..! -> 깃북을 보면 spt는 함수 호출자가 알아서 정리한다고 한다.
+
 }
 
-// void destructor_func (struct hash_elem hash_elem, void *aux) {
-// 	hash_entry(hash_elem, struct page, hash_elem);
+// 06.21 : kill 구현 (2)
+// ▶ 해시 테이블 제거 함수
+void
+hash_destroy_func(struct hash_elem *e, void* aux){
 
-// } 
+	/* Get hash element (hash_entry() 사용) */
+	/* load가 되어 있는 page의 vm_entry인 경우
+	page의 할당 해제 및 page mapping 해제 (palloc_free_page()와
+	pagedir_clear_page() 사용) */
+	/* vm_entry 객체 할당 해제 */
+	struct page* kill_page = hash_entry(e, struct page, hash_elem);
+	vm_dealloc_page(kill_page);
+
+	// 페이지 로드 여부 확인 및 page 할당 해제 + page mapping 해제 -> 이거 지금 해야 하나?
+}
