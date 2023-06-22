@@ -38,6 +38,7 @@ void close(int fd);
 void check_address(void *addr);
 int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
+void check_vaild_string (const void* str) ;
 
 /* System call.
  *
@@ -242,7 +243,6 @@ buffer 안에 fd 로 열려있는 파일로부터 size 바이트를 읽습니다
 */
 int read(int fd, void *buffer, unsigned size)
 {
-   check_address(buffer);
    int file_size;
    char *read_buffer = buffer;
    if (fd == 0)
@@ -282,6 +282,8 @@ buffer로부터 open file fd로 size 바이트를 적어줍니다.
 */
 int write(int fd, const void *buffer, unsigned size)
 {
+   // check_address(buffer);
+   check_vaild_string (buffer);
    int file_size;
    if (fd == STDOUT_FILENO)
    {
@@ -294,6 +296,7 @@ int write(int fd, const void *buffer, unsigned size)
    }
    else
    {
+      // 06.21
       if (fd < FD_MIN || fd >= FD_MAX)
       {
          exit(-1);
@@ -303,7 +306,6 @@ int write(int fd, const void *buffer, unsigned size)
       file_size = file_write(process_get_file(fd), buffer, size);
       lock_release(&filesys_lock);
    }
-   // 06.21
 
    return file_size;
 }
@@ -357,8 +359,23 @@ void close(int fd)
 void check_address(void *addr)
 {
    struct thread *curr = thread_current();
-   if (!is_user_vaddr(addr) || is_kernel_vaddr(addr))
+   if (is_kernel_vaddr(addr))
    {
       exit(-1);
    }
+}
+
+void check_vaild_string (const void* str) 
+{
+   check_address(str);
+
+   /* str에 대한 vm_entry의 존재 여부를 확인*/
+   struct thread* curr = thread_current();
+   struct page* is_page = spt_find_page(&curr->spt, pg_round_down(str));
+   if(is_page == NULL){
+      exit(-1);
+   }
+
+   /* check_address()사용*/
+
 }
