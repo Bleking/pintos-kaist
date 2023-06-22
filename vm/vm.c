@@ -6,6 +6,7 @@
 #include "threads/mmu.h"
 #include "lib/string.h"
 #include "lib/kernel/hash.h"
+#include "userprog/syscall.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -309,3 +310,18 @@ hash_destroy_func(struct hash_elem *e, void* aux){
 
 	// 페이지 로드 여부 확인 및 page 할당 해제 + page mapping 해제 -> 이거 지금 해야 하나?
 }
+
+// void check_valid_buffer (void *buffer, unsigned size, bool to_write) {
+// 	check_address(buffer);
+// 	void *page_va = pg_round_down(buffer);
+// 	struct page *page = spt_find_page(&thread_current()->spt, page_va);
+// 	if (page == NULL || page.){
+// 		exit(-1);
+// 	}
+
+
+// 	while (size > 0) {
+
+// 	}
+// }
+
