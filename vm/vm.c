@@ -46,15 +46,15 @@ void hash_destroy_func(struct hash_elem *e, void* aux);
  * page, do not create it directly and make it through this function or
  * `vm_alloc_page`. */
 bool
-vm_alloc_page_with_initializer (enum vm_type type, void *par_va, bool writable,
+vm_alloc_page_with_initializer (enum vm_type type, void *va, bool writable,
 		vm_initializer *init, void *aux) {
 
 	ASSERT (VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
 
-	/* Check wheter the par_va is already occupied or not. */
-	if (spt_find_page (spt, par_va) == NULL) {
+	/* Check wheter the va is already occupied or not. */
+	if (spt_find_page (spt, va) == NULL) {
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
@@ -62,12 +62,12 @@ vm_alloc_page_with_initializer (enum vm_type type, void *par_va, bool writable,
 		if (p== NULL){
 			return false;
 		}
-		switch (VM_TYPE(type)){ // 06.20
+		switch (type){ // 06.20
 			case VM_ANON:
-				uninit_new(p, par_va, init, type, aux, anon_initializer);
+				uninit_new(p, va, init, type, aux, anon_initializer);
 				break;
 			case VM_FILE:
-				uninit_new(p, par_va, init, type, aux, file_backed_initializer);
+				uninit_new(p, va, init, type, aux, file_backed_initializer);
 				break;
 			// case VM_PAGE_CACHE:
 			default:
@@ -242,43 +242,45 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst ,
 		struct supplemental_page_table *src ) {
-	bool succ = true;
 	struct hash_iterator i;
 
 	hash_first (&i, &src->table);
 	while (hash_next (&i))
 	{
 		struct page *par_page = hash_entry (hash_cur (&i), struct page, hash_elem);
+		vm_alloc_page_with_initializer(page_get_type(par_page), par_page->va, par_page->writable, par_page->anon.init, par_page->anon.aux);
+		
+		if (par_page->operations->type == VM_ANON){
+			vm_claim_page(par_page->va);
+			memcpy(spt_find_page(dst, par_page->va)->frame->kva, par_page->frame->kva, PGSIZE);
+		}
 
-		// par_page의 정보를 저장
-		void *par_va = par_page->va;
-		bool writable = par_page->writable;
 
 		// par_page의 타입
-		enum vm_type ty = page_get_type(par_page);
+		// vm_initializer *init = par_page;
 
 		// par_page의 타입에 따라 다른 방식으로 할당.
-		
-		switch (ty) {
-			case (VM_UNINIT):
-				vm_alloc_page(VM_ANON, par_va, writable);
-				struct frame *child_page_frame1 = spt_find_page(dst, par_va)->frame;
-				child_page_frame1 = vm_get_frame();
-				memcpy(child_page_frame1->kva, par_page->frame->kva, PGSIZE);
-				break;
+		// switch (ty) {
+		// 	case (VM_UNINIT):
+		// 		vm_alloc_page(VM_ANON, va, writable);
+		// 		struct frame *child_page_frame1 = spt_find_page(dst, va)->frame;
+		// 		child_page_frame1 = vm_get_frame();
+		// 		memcpy(child_page_frame1->kva, par_page->frame->kva, PGSIZE);
+		// 		break;
 
-			case (VM_ANON):
-				vm_alloc_page(VM_ANON, par_va, writable);
-				vm_claim_page(par_va);
-				memcpy(spt_find_page(dst, par_va)->frame->kva, par_page->frame->kva, PGSIZE);
-				break;
-			// case (VM_FILE):
-			default:
-				break;
-		};
+		// 	case (VM_ANON):
+		// 		vm_alloc_page(VM_ANON, va, writable);
+		// 		vm_claim_page(va);
+		// 		memcpy(spt_find_page(dst, va)->frame->kva, par_page->frame->kva, PGSIZE);
+		// 		break;
+		// 	// case (VM_FILE):
+		// 	default:
+		// 		break;
+		// };
+
 
 	};
-	return succ;
+	return true;
 
 }
 
@@ -310,18 +312,4 @@ hash_destroy_func(struct hash_elem *e, void* aux){
 
 	// 페이지 로드 여부 확인 및 page 할당 해제 + page mapping 해제 -> 이거 지금 해야 하나?
 }
-
-// void check_valid_buffer (void *buffer, unsigned size, bool to_write) {
-// 	check_address(buffer);
-// 	void *page_va = pg_round_down(buffer);
-// 	struct page *page = spt_find_page(&thread_current()->spt, page_va);
-// 	if (page == NULL || page.){
-// 		exit(-1);
-// 	}
-
-
-// 	while (size > 0) {
-
-// 	}
-// }
 
