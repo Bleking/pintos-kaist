@@ -129,6 +129,8 @@ struct thread
 #endif
 #ifdef VM
    /* Table for whole virtual memory owned by thread. */
+   void *rsp_stack; // 현재 쓰레드의 rsp 주소값을 담는 변수
+   void *stack_bottom; // 현재 쓰레드의 stack 영역의 끝 지점을 파악하기 위해 선언하는 변수
    struct supplemental_page_table spt;
 #endif
 

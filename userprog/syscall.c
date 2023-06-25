@@ -19,7 +19,8 @@
 
 void syscall_entry(void);
 void syscall_handler(struct intr_frame *);
-void check_address(void *addr);
+struct page *check_address(void *addr);
+// void check_address(void *addr);
 void get_argument(void *rsp, int *arg, int count);
 void halt(void);
 void exit(int status);
@@ -35,10 +36,9 @@ int write(int fd, const void *buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
-void check_address(void *addr);
 int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
-void check_vaild_string (const void* str) ;
+void check_valid_string (const void* str) ;
 void check_valid_buffer (void *buffer, unsigned size);
 
 /* System call.
@@ -153,7 +153,7 @@ void exit(int status)
 bool create(const char *file, unsigned initial_size)
 {
    // check_address(file);
-   check_vaild_string (file);
+   check_valid_string (file);
    return filesys_create(file, initial_size);
 }
 
@@ -188,7 +188,7 @@ int exec(const char *cmd_line)
    char *fn_copy;
    tid_t tid;
 
-   check_vaild_string (cmd_line);
+   check_valid_string (cmd_line);
    fn_copy = palloc_get_page(PAL_ZERO);
    if (fn_copy == NULL){
       return TID_ERROR;
@@ -219,7 +219,7 @@ file(첫 번째 인자)이라는 이름을 가진 파일을 엽니다. 해당 �
 int open(const char *file)
 {
    // check_address(file);
-   check_vaild_string (file);
+   check_valid_string (file);
    struct file *open_file = filesys_open(file);
    if (open_file == NULL)
    {
@@ -251,8 +251,8 @@ buffer 안에 fd 로 열려있는 파일로부터 size 바이트를 읽습니다
 */
 int read(int fd, void *buffer, unsigned size)
 {
-
-   check_valid_buffer (buffer, size);
+   check_valid_buffer(buffer, size);
+   // check_address(buffer);
    int file_size;
    char *read_buffer = buffer;
    if (fd == 0)
@@ -293,7 +293,7 @@ buffer로부터 open file fd로 size 바이트를 적어줍니다.
 int write(int fd, const void *buffer, unsigned size)
 {
    // check_address(buffer);
-   check_vaild_string (buffer);
+   check_valid_buffer (buffer, size);
    int file_size;
    if (fd == STDOUT_FILENO)
    {
@@ -306,14 +306,18 @@ int write(int fd, const void *buffer, unsigned size)
    }
    else
    {
-      // 06.21
-      if (fd < FD_MIN || fd >= FD_MAX)
+      // // 06.21
+      // if (fd < FD_MIN || fd >= FD_MAX)
+      // {
+      //    exit(-1);
+      // }
+      struct file *read_file = process_get_file(fd);
+      if (read_file == NULL)
       {
-         exit(-1);
          return -1;
       }
       lock_acquire(&filesys_lock);
-      file_size = file_write(process_get_file(fd), buffer, size);
+      file_size = file_write(read_file, buffer, size);
       lock_release(&filesys_lock);
    }
 
@@ -366,46 +370,49 @@ void close(int fd)
 주소 값이 유저 영역 주소 값인지 확인
 유저 영역을 벗어난 영역일 경우 프로세스 종료(exit(-1)
 */
-void check_address(void *addr)
+struct page *check_address(void *addr)
 {
-   if (is_kernel_vaddr(addr) || !addr ||  addr >= (void *)0xc0000000)
+   struct page * page = spt_find_page(&thread_current()->spt, addr);
+   if (is_kernel_vaddr(addr) || !addr || page == NULL)
    {
       exit(-1);
    }
+   return page;
 }
 
-void check_vaild_string (const void* str) 
+// void check_address(void *addr)
+// {
+//    if (is_kernel_vaddr(addr) || !addr ||  addr >= (void *)0xc0000000)
+//    {
+//       exit(-1);
+//    }
+// }
+
+void check_valid_string (const void* str) 
 {
    check_address(str);
 
    /* str에 대한 vm_entry의 존재 여부를 확인*/
    struct thread* curr = thread_current();
-   struct page* is_page = spt_find_page(&curr->spt, pg_round_down(str));
+   struct page* is_page = spt_find_page(&curr->spt, str);
    if(is_page == NULL){
       exit(-1);
    }
 
-   /* check_address()사용*/
-
 }
 
 void check_valid_buffer (void *buffer, unsigned size) {
-	check_address(buffer);
-	void *page_va;
-	struct page *page;
-   char *temp_buffer = buffer;
-   int cnt = 0;
+   char cnt = 0;
 
+   // if (buffer < ((thread_current()->stack_bottom)-PGSIZE)){
+   //    printf("^^^^^^^^^^^^^^^^^^^^^^^^^111^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
+   //      exit(-1);
+   // }
 	while (size > cnt) {
-      check_address(temp_buffer);
-      page_va  = pg_round_down(temp_buffer);
-      page = spt_find_page(&thread_current()->spt, page_va);
-      if (page == NULL || page->writable != true){
+      cnt ++;
+      if (check_address(buffer + cnt)->writable != true){
          exit(-1);
       }
 
-      temp_buffer ++;
-      cnt ++;
 	}
 }
-

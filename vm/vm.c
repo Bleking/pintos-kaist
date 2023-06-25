@@ -62,7 +62,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *va, bool writable,
 		if (p== NULL){
 			return false;
 		}
-		switch (type){ // 06.20
+		switch (VM_TYPE(type)){ // 06.20
 			case VM_ANON:
 				uninit_new(p, va, init, type, aux, anon_initializer);
 				break;
@@ -165,7 +165,12 @@ vm_get_frame (void) {
 
 /* Growing the stack. */
 static void
-vm_stack_growth (void *addr UNUSED) {
+vm_stack_growth (void *new_stack_bottom UNUSED) {
+
+	if(vm_alloc_page(VM_ANON, new_stack_bottom, true))	   // 페이지 할당
+
+
+	thread_current()->stack_bottom = new_stack_bottom;	   // 현제 쓰레드의 stack_bottom 값 설정.
 }
 
 /* Handle the fault on write_protected page */
@@ -181,10 +186,21 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-	if (is_kernel_vaddr(addr) || !addr)	{
+
+	if (is_kernel_vaddr(addr) || !addr || !not_present)	{
 		return false;
 	}
+
 	page = spt_find_page(spt, addr);
+	if ( page == NULL ){
+		void *stack_bottom = thread_current()->stack_bottom;
+		void *new_stack_bottom = stack_bottom - PGSIZE;
+
+		if (f->rsp-8 <= addr  && addr <= stack_bottom) {   // addr이 grow limit안에 들어오는지 체크
+			vm_stack_growth(new_stack_bottom);
+		}
+		return vm_claim_page(new_stack_bottom);
+	}
 
 	return vm_do_claim_page(page);
 }
@@ -254,30 +270,6 @@ supplemental_page_table_copy (struct supplemental_page_table *dst ,
 			vm_claim_page(par_page->va);
 			memcpy(spt_find_page(dst, par_page->va)->frame->kva, par_page->frame->kva, PGSIZE);
 		}
-
-
-		// par_page의 타입
-		// vm_initializer *init = par_page;
-
-		// par_page의 타입에 따라 다른 방식으로 할당.
-		// switch (ty) {
-		// 	case (VM_UNINIT):
-		// 		vm_alloc_page(VM_ANON, va, writable);
-		// 		struct frame *child_page_frame1 = spt_find_page(dst, va)->frame;
-		// 		child_page_frame1 = vm_get_frame();
-		// 		memcpy(child_page_frame1->kva, par_page->frame->kva, PGSIZE);
-		// 		break;
-
-		// 	case (VM_ANON):
-		// 		vm_alloc_page(VM_ANON, va, writable);
-		// 		vm_claim_page(va);
-		// 		memcpy(spt_find_page(dst, va)->frame->kva, par_page->frame->kva, PGSIZE);
-		// 		break;
-		// 	// case (VM_FILE):
-		// 	default:
-		// 		break;
-		// };
-
 
 	};
 	return true;
