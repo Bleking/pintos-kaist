@@ -335,6 +335,7 @@ struct file *process_get_file(int fd)
    struct thread *cur = thread_current();
    if (fd < FD_MIN || fd >= FD_MAX)
    {
+      // PANIC("#######fd : %d################\n\n", fd);
       return NULL;
    }
    return cur->fdt[fd];
@@ -763,7 +764,7 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment(struct page *page, void *aux)
 {
    struct frame *frame = page->frame;
@@ -783,7 +784,12 @@ lazy_load_segment(struct page *page, void *aux)
          return false;
       }
       memset(frame->kva + temp_aux->page_read_bytes, 0, temp_aux->page_zero_bytes);
-
+      
+      if ( page->operations->type == VM_FILE){
+         page->file.file = temp_aux->file;
+         page->file.offset = temp_aux->ofs;
+         page->file.page_read_bytes = temp_aux->page_read_bytes;
+      }
       return true;
 }
 
@@ -825,7 +831,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
       aux->page_read_bytes = page_read_bytes;
       aux->page_zero_bytes = page_zero_bytes;
       aux->ofs = ofs;
-
 
       if (!vm_alloc_page_with_initializer(VM_ANON, upage,
                                           writable, lazy_load_segment, aux))

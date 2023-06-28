@@ -40,6 +40,8 @@ int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
 void check_valid_string (const void* str) ;
 void check_valid_buffer (void *buffer, unsigned size);
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
 
 /* System call.
  *
@@ -121,6 +123,12 @@ void syscall_handler(struct intr_frame *f UNUSED)
       break;
    case SYS_CLOSE: /* Close a file. */
       close(f->R.rdi);
+      break;
+   case SYS_MMAP:
+      f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+      break;
+   case SYS_MUNMAP:
+      munmap(f->R.rdi);
       break;
    default:
       thread_exit();
@@ -404,15 +412,63 @@ void check_valid_string (const void* str)
 void check_valid_buffer (void *buffer, unsigned size) {
    char cnt = 0;
 
-   // if (buffer < ((thread_current()->stack_bottom)-PGSIZE)){
-   //    printf("^^^^^^^^^^^^^^^^^^^^^^^^^111^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
-   //      exit(-1);
-   // }
 	while (size > cnt) {
       cnt ++;
       if (check_address(buffer + cnt)->writable != true){
          exit(-1);
       }
-
 	}
+}
+
+
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
+   struct file *file = process_get_file(fd);
+   struct page * page = spt_find_page(&thread_current()->spt, addr);
+   
+  
+   // PANIC("@@@@@@@@@@@@@@@@@FD: %d@@@@@@@@@@@@@@@@@@\n\n", fd);
+
+   // 주소 유효성 체크
+   if ( is_kernel_vaddr(addr) || !addr || length <= 0 || page != NULL || file == NULL || file_length(file) == 0){
+      // PANIC("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n");
+      return NULL;
+   }
+   // if (is_kernel_vaddr(addr)) {
+   //    PANIC("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n");
+   //    return NULL;
+   // }
+   // if (!addr) {
+   //    PANIC("##########################################\n\n");
+   //    return NULL;
+   // }
+   // if (length <= 0) {
+   //    PANIC("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
+   //    return NULL;
+   // }
+   // if (page != NULL) {
+   //    PANIC("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
+   //    return NULL;
+   // }
+   // if (file == NULL) {
+   //    PANIC("**********************************************************************\n\n");
+   //    return NULL;
+   // }
+   // if (file_length(file) == 0) {
+   //    PANIC("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n\n");
+   //    return NULL;
+   // }
+   
+   // if (offset % PGSIZE != 0) {
+   //    PANIC("^^^^^^^^^^^^^^^^66666^^^^^^^^^^^");
+   //    return NULL;
+   // }
+   if ((uint64_t)addr % PGSIZE != 0) {
+      PANIC("$$$$$$$$$$$$$$$$$444444$$$$$$$$$$$$$$$$$$$$$$");
+      return NULL;
+   }
+   return do_mmap(addr, length, writable, file, offset);
+}
+
+void munmap (void *addr){
+ do_munmap(addr);
 }

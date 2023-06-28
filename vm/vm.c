@@ -221,6 +221,7 @@ vm_claim_page (void *va UNUSED) {
 	page = spt_find_page(&thread_current()->spt, va);
 
 	if(page == NULL){
+		PANIC("wooooo2");
 		return false;
 		// vm_alloc_page(VM_ANON, va, 1); // 06.19 나중에 변경!
 		// page = spt_find_page(&thread_current()->spt, va);
@@ -245,6 +246,8 @@ vm_do_claim_page (struct page *page) {
 	if (pml4_get_page(thread_current()->pml4, page->va) == NULL && pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){
 		return swap_in (page, frame->kva);
 	}
+
+
 	return false;
 }
 
