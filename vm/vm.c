@@ -186,13 +186,15 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-
+	// printf("first\n");
 	if (is_kernel_vaddr(addr) || !addr || !not_present)	{
+		// printf("addr invalid\n");
 		return false;
 	}
 
 	page = spt_find_page(spt, addr);
-	if ( page == NULL ){
+	if ( page == NULL && USER_STACK >= addr && addr >= USER_STACK-(1 << 20)){
+		// printf("여긴가?\n");
 		void *stack_bottom = thread_current()->stack_bottom;
 		void *new_stack_bottom = stack_bottom - PGSIZE;
 
@@ -201,7 +203,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		}
 		return vm_claim_page(new_stack_bottom);
 	}
-
+	if (page == NULL) return false;
 	return vm_do_claim_page(page);
 }
 
@@ -221,7 +223,6 @@ vm_claim_page (void *va UNUSED) {
 	page = spt_find_page(&thread_current()->spt, va);
 
 	if(page == NULL){
-		PANIC("wooooo2");
 		return false;
 		// vm_alloc_page(VM_ANON, va, 1); // 06.19 나중에 변경!
 		// page = spt_find_page(&thread_current()->spt, va);
@@ -235,8 +236,9 @@ static bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
 
-	if (frame == NULL)
+	if (frame == NULL){
 		return false;
+	}
 
 	/* Set links */
 	frame->page = page;
@@ -246,8 +248,6 @@ vm_do_claim_page (struct page *page) {
 	if (pml4_get_page(thread_current()->pml4, page->va) == NULL && pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable)){
 		return swap_in (page, frame->kva);
 	}
-
-
 	return false;
 }
 
