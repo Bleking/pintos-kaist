@@ -335,7 +335,6 @@ struct file *process_get_file(int fd)
    struct thread *cur = thread_current();
    if (fd < FD_MIN || fd >= FD_MAX)
    {
-      // PANIC("#######fd : %d################\n\n", fd);
       return NULL;
    }
    return cur->fdt[fd];
@@ -385,6 +384,17 @@ void process_exit(void)
    for (int i = 2; i < 64; i++)
       close(i);
    file_close(cur->running_file);
+
+   if ( hash_size(&cur->spt.table) != 0){
+   struct hash_iterator i;
+   hash_first (&i, &cur->spt.table);
+   
+      while (hash_next (&i))
+      {
+         struct page *page = hash_entry (hash_cur (&i), struct page, hash_elem);
+         do_munmap(page->va);
+      }
+   }
    sema_up(&cur->exit_sema);
    sema_down(&cur->free_sema);
    process_cleanup(); // pml4를 날림(이 함수를 call 한 thread의 pml4)

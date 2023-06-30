@@ -62,7 +62,7 @@ void syscall_init(void)
                            ((uint64_t)SEL_KCSEG) << 32);
    write_msr(MSR_LSTAR, (uint64_t)syscall_entry);
 
-   /* The interrupt service rountine should not serve any interrupts
+   /* The interrupt setrvice rountine should not serve any interrupts
     * until the syscall_entry swaps the userland stack to the kernel
     * mode stack. Therefore, we masked the FLAG_FL. */
    write_msr(MSR_SYSCALL_MASK,
@@ -301,7 +301,7 @@ buffer로부터 open file fd로 size 바이트를 적어줍니다.
 int write(int fd, const void *buffer, unsigned size)
 {
    // check_address(buffer);
-   check_valid_buffer (buffer, size);
+   check_valid_string (buffer);
    int file_size;
    if (fd == STDOUT_FILENO)
    {
@@ -314,11 +314,6 @@ int write(int fd, const void *buffer, unsigned size)
    }
    else
    {
-      // // 06.21
-      // if (fd < FD_MIN || fd >= FD_MAX)
-      // {
-      //    exit(-1);
-      // }
       struct file *read_file = process_get_file(fd);
       if (read_file == NULL)
       {
@@ -425,47 +420,19 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
    struct file *file = process_get_file(fd);
    struct page * page = spt_find_page(&thread_current()->spt, addr);
    
-  
-   // PANIC("@@@@@@@@@@@@@@@@@FD: %d@@@@@@@@@@@@@@@@@@\n\n", fd);
-
    // 주소 유효성 체크
    if ( is_kernel_vaddr(addr) || !addr || length <= 0 || page != NULL || file == NULL || file_length(file) == 0){
-      // PANIC("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n");
       return NULL;
    }
-   // if (is_kernel_vaddr(addr)) {
-   //    PANIC("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n\n");
-   //    return NULL;
-   // }
-   // if (!addr) {
-   //    PANIC("##########################################\n\n");
-   //    return NULL;
-   // }
-   // if (length <= 0) {
-   //    PANIC("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n");
-   //    return NULL;
-   // }
-   // if (page != NULL) {
-   //    PANIC("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n");
-   //    return NULL;
-   // }
-   // if (file == NULL) {
-   //    PANIC("**********************************************************************\n\n");
-   //    return NULL;
-   // }
-   // if (file_length(file) == 0) {
-   //    PANIC("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n\n");
-   //    return NULL;
-   // }
    
-   // if (offset % PGSIZE != 0) {
-   //    PANIC("^^^^^^^^^^^^^^^^66666^^^^^^^^^^^");
-   //    return NULL;
-   // }
-   if ((uint64_t)addr % PGSIZE != 0) {
-      PANIC("$$$$$$$$$$$$$$$$$444444$$$$$$$$$$$$$$$$$$$$$$");
+   if (offset % PGSIZE != 0) {
       return NULL;
    }
+   if ((uint64_t)addr % PGSIZE != 0) {
+      return NULL;
+   }
+   if (addr + length == 0) return NULL;
+
    return do_mmap(addr, length, writable, file, offset);
 }
 
