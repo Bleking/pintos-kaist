@@ -15,20 +15,17 @@ test_main (void)
   char *actual = (char *) 0x54321000;
   int handle;
   void *map;
-  // msg("start test\n");
+
   /* Open file, map, verify data. */
   CHECK ((handle = open ("sample.txt")) > 1, "open \"sample.txt\"");
-//  msg("before mmap\n");
 	CHECK ((map = mmap (actual, 4096, 0, handle, 0)) != MAP_FAILED, "mmap \"sample.txt\"");
   if (memcmp (actual, sample, strlen (sample)))
     fail ("read of mmap'd file reported bad data");
 
-  // msg("before modification\n");
   /* Modify file. */
   CHECK (write (handle, overwrite, strlen (overwrite))
          == (int) strlen (overwrite),
          "write \"sample.txt\"");
-  // msg("after modification\n");
 
   /* Close mapping.  Data should not be written back, because we
      didn't modify it via the mapping. */

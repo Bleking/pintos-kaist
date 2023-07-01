@@ -96,7 +96,6 @@ file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) {
 off_t
 file_write (struct file *file, const void *buffer, off_t size) {
 	if (file == NULL) {
-		printf("file_write안\n\n");
 		return -1;
 	}
 	off_t bytes_written = inode_write_at (file->inode, buffer, size, file->pos);

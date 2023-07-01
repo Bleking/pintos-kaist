@@ -6,7 +6,6 @@
 #include "threads/vaddr.h"
 #include "threads/mmu.h"
 
-static struct disk *file_disk;
 static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
 static void file_backed_destroy (struct page *page);
@@ -22,7 +21,7 @@ static const struct page_operations file_ops = {
 /* The initializer of file vm */
 void
 vm_file_init (void) {
-	file_disk = NULL;
+
 }
 
 /* Initialize the file backed page */

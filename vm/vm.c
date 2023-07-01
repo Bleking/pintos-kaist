@@ -8,6 +8,8 @@
 #include "lib/kernel/hash.h"
 #include "userprog/syscall.h"
 
+struct list frame_table;
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -20,6 +22,7 @@ vm_init (void) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
+	list_init(&frame_table); // 6.30
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -122,7 +125,22 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
-	 /* TODO: The policy for eviction is up to you. */
+	/* TODO: The policy for eviction is up to you. */
+	if (!list_empty (&frame_table)) {
+		struct list_elem *e;
+		for (e = list_begin (&frame_table); e != list_end (&frame_table); e = e->prev){
+			struct frame *temp = list_entry(e, struct frame, frame_elem);
+			if ( pml4_is_accessed(thread_current()->pml4, temp->page->va) ){
+				pml4_set_accessed(thread_current()->pml4, temp->page->va, 0);
+			} else {
+				victim = temp;
+				break;
+			}
+		}
+	}
+	if (victim == NULL){
+		victim = list_entry(list_begin(&frame_table), struct frame, frame_elem);
+	}
 
 	return victim;
 }
@@ -131,10 +149,12 @@ vm_get_victim (void) {
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	struct frame *victim UNUSED = vm_get_victim ();
+	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
+	if ( victim == NULL ) return NULL;
 
-	return NULL;
+	swap_out(victim->page);
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -155,11 +175,15 @@ vm_get_frame (void) {
 
     frame->kva = palloc_get_page(PAL_USER); // 물리 프레임의 주소(kva)를 반환하는 것
 	if (frame->kva == NULL){
-        PANIC("todo");
+        // PANIC("todo");
+		frame = vm_evict_frame(); // 6.30
     }
-    frame->page = NULL;
+	
+	frame->page = NULL;
     ASSERT (frame != NULL);
     ASSERT (frame->page == NULL);
+
+	list_push_back(&frame_table, &frame->frame_elem);
     return frame;
 }
 
@@ -186,15 +210,12 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-	// printf("first\n");
 	if (is_kernel_vaddr(addr) || !addr || !not_present)	{
-		// printf("addr invalid\n");
 		return false;
 	}
 
 	page = spt_find_page(spt, addr);
 	if ( page == NULL && USER_STACK >= addr && addr >= USER_STACK-(1 << 20)){
-		// printf("여긴가?\n");
 		void *stack_bottom = thread_current()->stack_bottom;
 		void *new_stack_bottom = stack_bottom - PGSIZE;
 
@@ -204,6 +225,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		return vm_claim_page(new_stack_bottom);
 	}
 	if (page == NULL) return false;
+
 	return vm_do_claim_page(page);
 }
 
