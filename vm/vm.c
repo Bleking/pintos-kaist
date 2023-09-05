@@ -8,7 +8,9 @@
 #include "lib/kernel/hash.h"
 #include "userprog/syscall.h"
 
+// 07.01
 struct list frame_table;
+struct list_elem *start;
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -22,7 +24,9 @@ vm_init (void) {
 	register_inspect_intr ();
 	/* DO NOT MODIFY UPPER LINES. */
 	/* TODO: Your code goes here. */
-	list_init(&frame_table); // 6.30
+	// 07.01
+	list_init(&frame_table);
+	start = list_begin(&frame_table);
 }
 
 /* Get the type of the page. This function is useful if you want to know the
@@ -126,21 +130,39 @@ static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
 	/* TODO: The policy for eviction is up to you. */
-	if (!list_empty (&frame_table)) {
-		struct list_elem *e;
-		for (e = list_begin (&frame_table); e != list_end (&frame_table); e = e->prev){
-			struct frame *temp = list_entry(e, struct frame, frame_elem);
-			if ( pml4_is_accessed(thread_current()->pml4, temp->page->va) ){
-				pml4_set_accessed(thread_current()->pml4, temp->page->va, 0);
-			} else {
-				victim = temp;
-				break;
-			}
-		}
+	struct thread *curr = thread_current();
+	struct list_elem *e = start;
+	
+	for (start = e; start != list_end(&frame_table); start = list_next(start)) {
+		victim = list_entry(start, struct frame, frame_elem);
+		if (pml4_is_accessed(curr->pml4, victim->page->va))
+			pml4_set_accessed(curr->pml4, victim->page->va, 0);
+		else
+			return victim;
 	}
-	if (victim == NULL){
-		victim = list_entry(list_begin(&frame_table), struct frame, frame_elem);
+
+	for (start = list_begin(&frame_table); start != e; start = list_next(start)) {
+		victim = list_entry(start, struct frame, frame_elem);
+		if (pml4_is_accessed(curr->pml4, victim->page->va))
+			pml4_set_accessed(curr->pml4, victim->page->va, 0);
+		else
+			return victim;
 	}
+	// if (!list_empty (&frame_table)) {
+	// 	struct list_elem *e;
+	// 	for (e = list_begin (&frame_table); e != list_end (&frame_table); e = e->prev){
+	// 		struct frame *temp = list_entry(e, struct frame, frame_elem);
+	// 		if ( pml4_is_accessed(thread_current()->pml4, temp->page->va) ){
+	// 			pml4_set_accessed(thread_current()->pml4, temp->page->va, 0);
+	// 		} else {
+	// 			victim = temp;
+	// 			break;
+	// 		}
+	// 	}
+	// }
+	// if (victim == NULL){
+	// 	victim = list_entry(list_begin(&frame_table), struct frame, frame_elem);
+	// }
 
 	return victim;
 }
@@ -151,9 +173,11 @@ static struct frame *
 vm_evict_frame (void) {
 	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
-	if ( victim == NULL ) return NULL;
+	if (victim == NULL)
+		return NULL;
 
 	swap_out(victim->page);
+
 	return victim;
 }
 
@@ -177,13 +201,17 @@ vm_get_frame (void) {
 	if (frame->kva == NULL){
         // PANIC("todo");
 		frame = vm_evict_frame(); // 6.30
+		// 07.01
+		frame->page = NULL;
+
+		return frame;
     }
+	list_push_back(&frame_table, &frame->frame_elem);
 	
 	frame->page = NULL;
     ASSERT (frame != NULL);
     ASSERT (frame->page == NULL);
 
-	list_push_back(&frame_table, &frame->frame_elem);
     return frame;
 }
 

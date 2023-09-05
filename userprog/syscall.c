@@ -398,7 +398,7 @@ void check_valid_string (const void* str)
    /* str에 대한 vm_entry의 존재 여부를 확인*/
    struct thread* curr = thread_current();
    struct page* is_page = spt_find_page(&curr->spt, str);
-   if(is_page == NULL){
+   if (is_page == NULL) {
       exit(-1);
    }
 
@@ -431,11 +431,12 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
    if ((uint64_t)addr % PGSIZE != 0) {
       return NULL;
    }
-   if ((long long)length < 0) return NULL;
+   if ((long long)length < 0)
+      return NULL;
 
    return do_mmap(addr, length, writable, file, offset);
 }
 
-void munmap (void *addr){
- do_munmap(addr);
+void munmap (void *addr) {
+   do_munmap(addr);
 }

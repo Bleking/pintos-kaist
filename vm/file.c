@@ -37,12 +37,46 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
 	struct file_page *file_page UNUSED = &page->file;
+
+	// 07.01
+	if (page == NULL)
+		return NULL;
+	
+	struct lazy_load_file *lazy_file = (struct lazy_load_file *)page->uninit.aux;
+	file_seek(lazy_file->file, lazy_file->ofs);
+
+	struct file *file = lazy_file->file;
+	off_t offset = lazy_file->ofs;
+	size_t read_bytes = lazy_file->page_read_bytes;
+	size_t zero_bytes = PGSIZE - read_bytes;
+
+	// Swaps in a page at kva by reading the contents in from the file.
+	if (file_read(lazy_file->file, kva, lazy_file->page_read_bytes) != (int)lazy_file->page_read_bytes) { 
+		// palloc_free_page(kva);
+		return false;
+	}
+	memset(kva + lazy_file->page_read_bytes, 0, PGSIZE - lazy_file->page_read_bytes);
+
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+	
+	// 07.01
+	if (page == NULL)
+		return false;
+
+	struct thread *curr = thread_current();
+	struct lazy_load_file *lazy_file = (struct lazy_load_file *)page->uninit.aux;
+
+	if (pml4_is_dirty(curr->pml4, page->va)) {
+		file_write_at(lazy_file->file, page->va, lazy_file->page_read_bytes, lazy_file->ofs);
+		pml4_set_dirty(curr->pml4, page->va, 0);
+	}
+	pml4_clear_page(curr->pml4, page->va);
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -67,8 +101,7 @@ do_mmap (void *addr, size_t length, int writable,
 	length = temp_length > length ? length : temp_length;
 
 	void *result = addr;
-	while (length > 0)
-   {
+	while (length > 0) {
 		size_t page_read_bytes = length < PGSIZE ? length : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
@@ -78,7 +111,7 @@ do_mmap (void *addr, size_t length, int writable,
 		aux->page_zero_bytes = page_zero_bytes;
 		aux->ofs = offset;
 
-		if (!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, aux)){
+		if (!vm_alloc_page_with_initializer(VM_FILE, addr, writable, lazy_load_segment, aux)) {
 			return NULL;
 		}
 		length -= page_read_bytes;
@@ -88,6 +121,7 @@ do_mmap (void *addr, size_t length, int writable,
 	int seq_num = (addr - result) / PGSIZE;
 	struct page *page = spt_find_page(&thread_current()->spt, result);
 	page->seq_num = seq_num;
+
 	return result;
 }
 
@@ -96,13 +130,17 @@ void
 do_munmap (void *addr) {
 	int temp = 0;
 	struct page *page = spt_find_page(&thread_current()->spt, addr);
-	while (page->seq_num-temp != 0){
 
-	struct page *page = spt_find_page(&thread_current()->spt, addr);
+	while (page->seq_num-temp != 0) {
+		struct page *page = spt_find_page(&thread_current()->spt, addr);
 
-	if (page == NULL && page->operations->type != VM_FILE) break;
-	file_backed_destroy(page);
-	addr += PGSIZE;
-	temp++;
+		if (page == NULL && page->operations->type != VM_FILE) {
+			// break;
+			return NULL;  // 07.01
+		}
+		
+		file_backed_destroy(page);
+		addr += PGSIZE;
+		temp++;
 	}
 }

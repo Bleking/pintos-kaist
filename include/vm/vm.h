@@ -68,6 +68,7 @@ struct page {
 struct frame {
 	void *kva;
 	struct page *page;
+	// 07.01
 	struct list_elem frame_elem;
 };
 

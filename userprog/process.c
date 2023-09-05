@@ -385,12 +385,11 @@ void process_exit(void)
       close(i);
    file_close(cur->running_file);
 
-   if ( hash_size(&cur->spt.table) != 0){
+   if (hash_size(&cur->spt.table) != 0) {
    struct hash_iterator i;
    hash_first (&i, &cur->spt.table);
    
-      while (hash_next (&i))
-      {
+      while (hash_next (&i)) {
          struct page *page = hash_entry (hash_cur (&i), struct page, hash_elem);
          do_munmap(page->va);
       }
